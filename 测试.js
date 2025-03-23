@@ -1,7 +1,7 @@
 /**
- * @name my音乐(cs)
- * @description 直接从网易云音乐、QQ音乐、酷我音乐、酷狗音乐和虾米音乐官方服务器获取音乐
- * @version 1.1.0
+ * @name 落雪音乐
+ * @description 直接从网易云音乐、QQ音乐、酷我音乐和酷狗音乐官方服务器获取音乐
+ * @version 1.0.1
  * @author Your Name
  * @homepage http://yourwebsite.com
  */
@@ -24,7 +24,7 @@ const wyQualitys = {
   '128k': '128000',
   '320k': '320000',
   'flac': '999000',
-  'flac24bit': '2000000',
+  'flac24bit': '999000', // 降级到 flac，避免 flac24bit 不可用
 };
 
 const txQualitys = {
@@ -48,13 +48,6 @@ const kgQualitys = {
   'flac24bit': 'flac', // 酷狗可能不支持 flac24bit
 };
 
-const xmQualitys = {
-  '128k': 'l', // 低音质
-  '320k': 'h', // 高音质
-  'flac': 'f',  // 无损音质
-  'flac24bit': 'f', // 虾米可能不支持 flac24bit
-};
-
 // 定义 API 调用逻辑
 const apis = {
   wy: {
@@ -66,12 +59,18 @@ const apis = {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Referer': 'https://music.163.com/',
-          // 如果需要认证，请添加 Cookie，例如：
+          // 添加您的 MUSIC_U Cookie 以确保认证
           // 'Cookie': 'MUSIC_U=your_music_u_cookie_here'
         }
       }).then(data => {
-        if (!data || !data.data || !data.data[0] || !data.data[0].url) {
-          throw new Error(`API response missing 'url' for ${apiUrl}`);
+        if (!data) {
+          throw new Error(`API response is empty for ${apiUrl}`);
+        }
+        if (!data.data || !data.data[0]) {
+          throw new Error(`API response missing 'data[0]' for ${apiUrl}, response: ${JSON.stringify(data)}`);
+        }
+        if (!data.data[0].url) {
+          throw new Error(`API response missing 'url' for ${apiUrl}, response: ${JSON.stringify(data)}`);
         }
         return data.data[0].url;
       });
@@ -91,10 +90,9 @@ const apis = {
         }
       }).then(data => {
         if (!data || !data.req_0 || !data.req_0.data || !data.req_0.data.midurlinfo || !data.req_0.data.midurlinfo[0].purl) {
-          throw new Error(`API response missing 'purl' for ${apiUrl}`);
+          throw new Error(`API response missing 'purl' for ${apiUrl}, response: ${JSON.stringify(data)}`);
         }
         const purl = data.req_0.data.midurlinfo[0].purl;
-        const vkey = data.req_0.data.midurlinfo[0].vkey;
         const sip = data.req_0.data.sip[0];
         return `${sip}${purl}`;
       });
@@ -114,7 +112,7 @@ const apis = {
         }
       }).then(data => {
         if (!data || !data.data || !data.data.url) {
-          throw new Error(`API response missing 'url' for ${apiUrl}`);
+          throw new Error(`API response missing 'url' for ${apiUrl}, response: ${JSON.stringify(data)}`);
         }
         return data.data.url;
       });
@@ -134,31 +132,9 @@ const apis = {
         }
       }).then(data => {
         if (!data || !data.data || !data.data.play_url) {
-          throw new Error(`API response missing 'play_url' for ${apiUrl}`);
+          throw new Error(`API response missing 'play_url' for ${apiUrl}, response: ${JSON.stringify(data)}`);
         }
         return data.data.play_url;
-      });
-    },
-  },
-  xm: {
-    musicUrl(musicInfo, quality) {
-      const id = musicInfo.id;
-      const q = xmQualitys[quality] || 'l';
-      // 注意：虾米音乐已于2021年2月5日关闭，此API可能不可用
-      // 如果您有第三方API或存档，请替换以下URL
-      const apiUrl = `https://music.xiami.com/api/song/getPlayInfo?songIds=${id}&quality=${q}`;
-      return httpRequest(apiUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          'Referer': 'https://music.xiami.com/',
-          // 如果需要认证，请添加 Cookie，例如：
-          // 'Cookie': 'xiami_token=your_xiami_token_here'
-        }
-      }).then(data => {
-        if (!data || !data.data || !data.data.playUrl) {
-          throw new Error(`API response missing 'playUrl' for ${apiUrl}`);
-        }
-        return data.data.playUrl;
       });
     },
   },
@@ -201,12 +177,6 @@ send(EVENT_NAMES.inited, {
     },
     kg: {
       name: '酷狗音乐',
-      type: 'music',
-      actions: ['musicUrl'],
-      qualitys: ['128k', '320k', 'flac', 'flac24bit'],
-    },
-    xm: {
-      name: '虾米音乐',
       type: 'music',
       actions: ['musicUrl'],
       qualitys: ['128k', '320k', 'flac', 'flac24bit'],
