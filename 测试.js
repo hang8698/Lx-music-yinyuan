@@ -1,7 +1,7 @@
 /**
- * @name my音乐
+ * @name my音乐(cs)
  * @description 直接从网易云音乐、QQ音乐、酷我音乐、酷狗音乐和虾米音乐官方服务器获取音乐
- * @version 1.0.0
+ * @version 1.1.0
  * @author Your Name
  * @homepage http://yourwebsite.com
  */
