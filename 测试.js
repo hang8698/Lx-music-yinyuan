@@ -1,6 +1,6 @@
 /**
- * @name 落雪音乐
- * @description 直接从网易云音乐和QQ音乐官方服务器获取音乐
+ * @name my音乐
+ * @description 直接从网易云音乐、QQ音乐、酷我音乐、酷狗音乐和虾米音乐官方服务器获取音乐
  * @version 1.0.0
  * @author Your Name
  * @homepage http://yourwebsite.com
@@ -34,6 +34,27 @@ const txQualitys = {
   'flac24bit': 'F000', // QQ 音乐可能不支持 flac24bit
 };
 
+const kwQualitys = {
+  '128k': '128kmp3',
+  '320k': '320kmp3',
+  'flac': '2000kflac',
+  'flac24bit': '2000kflac', // 酷我可能不支持 flac24bit
+};
+
+const kgQualitys = {
+  '128k': '128',
+  '320k': '320',
+  'flac': 'flac',
+  'flac24bit': 'flac', // 酷狗可能不支持 flac24bit
+};
+
+const xmQualitys = {
+  '128k': 'l', // 低音质
+  '320k': 'h', // 高音质
+  'flac': 'f',  // 无损音质
+  'flac24bit': 'f', // 虾米可能不支持 flac24bit
+};
+
 // 定义 API 调用逻辑
 const apis = {
   wy: {
@@ -58,7 +79,7 @@ const apis = {
   },
   tx: {
     musicUrl(musicInfo, quality) {
-      const id = musicInfo.songmid || musicInfo.id; // QQ 音乐通常使用 songmid
+      const id = musicInfo.songmid || musicInfo.id;
       const q = txQualitys[quality] || 'M500';
       const apiUrl = `https://u.y.qq.com/cgi-bin/musicu.fcg?format=json&data={"req_0":{"module":"vkey.GetVkeyServer","method":"CgiGetVkey","param":{"guid":"123456789","songmid":["${id}"],"songtype":[0],"uin":"0","loginflag":0,"platform":"20"}}}`;
       return httpRequest(apiUrl, {
@@ -75,7 +96,69 @@ const apis = {
         const purl = data.req_0.data.midurlinfo[0].purl;
         const vkey = data.req_0.data.midurlinfo[0].vkey;
         const sip = data.req_0.data.sip[0];
-        return `${sip}${purl}`; // 拼接完整的播放 URL
+        return `${sip}${purl}`;
+      });
+    },
+  },
+  kw: {
+    musicUrl(musicInfo, quality) {
+      const id = musicInfo.id;
+      const q = kwQualitys[quality] || '128kmp3';
+      const apiUrl = `http://www.kuwo.cn/api/v1/www/music/playUrl?mid=${id}&type=music&br=${q}`;
+      return httpRequest(apiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Referer': 'http://www.kuwo.cn/',
+          // 如果需要认证，请添加 Cookie，例如：
+          // 'Cookie': 'kw_token=your_kw_token_here'
+        }
+      }).then(data => {
+        if (!data || !data.data || !data.data.url) {
+          throw new Error(`API response missing 'url' for ${apiUrl}`);
+        }
+        return data.data.url;
+      });
+    },
+  },
+  kg: {
+    musicUrl(musicInfo, quality) {
+      const id = musicInfo.hash || musicInfo.id;
+      const q = kgQualitys[quality] || '128';
+      const apiUrl = `http://www.kugou.com/yy/index.php?r=play/getdata&hash=${id}&album_id=0&mid=1&platid=4`;
+      return httpRequest(apiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Referer': 'http://www.kugou.com/',
+          // 如果需要认证，请添加 Cookie，例如：
+          // 'Cookie': 'kg_mid=your_kg_mid_here'
+        }
+      }).then(data => {
+        if (!data || !data.data || !data.data.play_url) {
+          throw new Error(`API response missing 'play_url' for ${apiUrl}`);
+        }
+        return data.data.play_url;
+      });
+    },
+  },
+  xm: {
+    musicUrl(musicInfo, quality) {
+      const id = musicInfo.id;
+      const q = xmQualitys[quality] || 'l';
+      // 注意：虾米音乐已于2021年2月5日关闭，此API可能不可用
+      // 如果您有第三方API或存档，请替换以下URL
+      const apiUrl = `https://music.xiami.com/api/song/getPlayInfo?songIds=${id}&quality=${q}`;
+      return httpRequest(apiUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Referer': 'https://music.xiami.com/',
+          // 如果需要认证，请添加 Cookie，例如：
+          // 'Cookie': 'xiami_token=your_xiami_token_here'
+        }
+      }).then(data => {
+        if (!data || !data.data || !data.data.playUrl) {
+          throw new Error(`API response missing 'playUrl' for ${apiUrl}`);
+        }
+        return data.data.playUrl;
       });
     },
   },
@@ -106,6 +189,24 @@ send(EVENT_NAMES.inited, {
     },
     tx: {
       name: 'QQ音乐',
+      type: 'music',
+      actions: ['musicUrl'],
+      qualitys: ['128k', '320k', 'flac', 'flac24bit'],
+    },
+    kw: {
+      name: '酷我音乐',
+      type: 'music',
+      actions: ['musicUrl'],
+      qualitys: ['128k', '320k', 'flac', 'flac24bit'],
+    },
+    kg: {
+      name: '酷狗音乐',
+      type: 'music',
+      actions: ['musicUrl'],
+      qualitys: ['128k', '320k', 'flac', 'flac24bit'],
+    },
+    xm: {
+      name: '虾米音乐',
       type: 'music',
       actions: ['musicUrl'],
       qualitys: ['128k', '320k', 'flac', 'flac24bit'],
